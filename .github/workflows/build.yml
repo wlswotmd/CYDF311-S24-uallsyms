@@ -12,6 +12,7 @@ jobs:
   build-lib:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
           sudo apt install gcc make
