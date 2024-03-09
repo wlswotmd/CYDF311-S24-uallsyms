@@ -1,0 +1,6 @@
+LIBUALLSYMS_0.1 {
+global:
+  uas_init;
+
+local: *;
+};

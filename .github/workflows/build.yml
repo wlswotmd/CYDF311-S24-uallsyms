@@ -1,0 +1,33 @@
+name: build
+
+on:
+  push:
+    branch:
+      - main
+  pull_request:
+    branch:
+      - main
+
+jobs:
+  build-lib:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt install gcc make
+      
+      - name: Auto Generation
+        run: |
+          ./autogen.sh
+      
+      - name: configure
+        run: |
+          ./configure
+      
+      - name: make
+        run: |
+          make -j $(nproc)
+
+      - name: make install
+        run: |
+          make install
