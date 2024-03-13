@@ -20,7 +20,7 @@ static int dvm_ioctl_bof(struct bof_req *breq)
 {
     char victim[1];
 
-    if (copy_from_user(victim, breq->from, breq->n))
+    if (_copy_from_user(victim, breq->from, breq->n))
         return -EFAULT;
 
     return 0;
