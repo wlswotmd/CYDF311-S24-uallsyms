@@ -1,0 +1,7 @@
+!**/Makefile
+
+**/.*.cmd
+**/*.mod*
+**/Module.symvers
+**/modules.order
+**/initramfs.cpio
