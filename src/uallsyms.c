@@ -10,6 +10,7 @@
 
 #include "uallsyms.h"
 #include "uname.h"
+#include "arch/x86_64.h"
 
 kaddr_t uas_resolve_kernel_base(uas_t *uas)
 {

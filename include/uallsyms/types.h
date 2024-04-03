@@ -4,13 +4,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+typedef size_t kaddr_t;
+#define UNKNOWN_KADDR ((kaddr_t)-1)
+
 struct uas;
 typedef struct uas uas_t;
 
 typedef int (*uas_aar_t)(void *to, kaddr_t from, size_t n);
-
-typedef size_t kaddr_t;
-#define UNKNOWN_KADDR ((kaddr_t)-1)
 
 /* 
  * x64_64 kernel에서 x86 binary를 돌릴 수도 있기 때문에 __amd64__등과 같은 macro를 
