@@ -48,7 +48,7 @@ run_vm()
         args+=("-enable-kvm")
     fi
 
-    qemu-system-x86_64 "${args[@]}" 2>&1
+    sudo qemu-system-x86_64 "${args[@]}" 2>&1
 }
 
 main()

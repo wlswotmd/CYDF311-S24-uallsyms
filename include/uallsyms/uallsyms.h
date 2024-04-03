@@ -1,13 +1,9 @@
 #ifndef _LIBUALLSYMS_H
 #define _LIBUALLSYMS_H
 
-#include <stddef.h>
+#include <uallsyms/types.h>
 
-struct uas;
-
-typedef struct uas uas_t;
-typedef int (*uas_aar_t)(void *to, void *from, size_t n);
-
-extern uas_t *uas_init(uas_aar_t aar_function);
+extern uas_t *uas_init(uas_aar_t aar_func);
+extern uas_t *uas_init2(uas_aar_t aar_func, arch_t arch);
 
 #endif /* _LIBUALLSYMS_H */

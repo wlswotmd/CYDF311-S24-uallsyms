@@ -6,8 +6,11 @@
 #include <uallsyms/uallsyms.h>
 
 struct uas {
-    size_t kernel_base_address;
-    uas_aar_t aar_function;
+    kaddr_t kbase;
+    kaddr_t kallsyms_token_table;
+    uas_aar_t aar_func;
+    arch_t arch;
+    kver_t kver;
 };
 
 #endif /* _UALLSYMS_UALLSYMS_H */
