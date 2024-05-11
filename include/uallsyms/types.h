@@ -7,11 +7,6 @@
 typedef size_t kaddr_t;
 #define UNKNOWN_KADDR ((kaddr_t)-1)
 
-struct uas;
-typedef struct uas uas_t;
-
-typedef int (*uas_aar_t)(void *to, kaddr_t from, size_t n);
-
 /* 
  * x64_64 kernel에서 x86 binary를 돌릴 수도 있기 때문에 __amd64__등과 같은 macro를 
  * 이용하기 보다는 uname 등을 이용해 현재 kernel의 architecture를 특정한다.
@@ -92,5 +87,17 @@ inline int kver_le(kver_t lhs, kver_t rhs)
 {
     return !kver_gt(lhs, rhs);
 }
+
+typedef int (*uas_aar_t)(void *to, kaddr_t from, size_t n);
+
+struct uas {
+    kaddr_t kbase;
+    kaddr_t kallsyms_token_table;
+    uas_aar_t aar_func;
+    arch_t arch;
+    kver_t kver;
+};
+
+typedef struct uas uas_t;
 
 #endif /* _LIBUALLSYMS_TYPES_H */

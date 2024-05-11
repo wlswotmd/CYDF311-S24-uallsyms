@@ -1,5 +1,10 @@
 # uallsyms
 
+## Dependencies
+```bash
+sudo apt install gcc make autoconf libtool
+```
+
 ## Compiling
 
 ```bash

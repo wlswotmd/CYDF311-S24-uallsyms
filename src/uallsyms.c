@@ -1,5 +1,5 @@
 /*
- * uallsyms: uallsyms helpers
+ * uallsyms.c: uallsyms helpers
  *
  * uallsyms library 관련 helper들이 구현되어 있다.
  */

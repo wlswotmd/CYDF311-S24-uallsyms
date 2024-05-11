@@ -1,3 +1,9 @@
+/*
+ * uname.c: uname 관련 helper들
+ *
+ * uname을 이용해 다양한 정보들을 파싱하는 함수들이 구현되어 있다.
+ */
+
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>

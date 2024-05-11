@@ -1,1 +1,1 @@
-pkginclude_HEADERS = uallsyms.h
+pkginclude_HEADERS = uallsyms.h types.h
