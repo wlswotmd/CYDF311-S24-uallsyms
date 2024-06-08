@@ -3,8 +3,19 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
+
+typedef uint64_t u64;
+typedef uint32_t u32;
+typedef uint16_t u16;
+typedef uint8_t u8;
+typedef int64_t s64;
+typedef int32_t s32;
+typedef int16_t s16;
+typedef int8_t s8;
 
 typedef size_t kaddr_t;
+typedef size_t koffs_t;
 #define UNKNOWN_KADDR ((kaddr_t)-1)
 
 /* 
@@ -90,12 +101,38 @@ inline int kver_le(kver_t lhs, kver_t rhs)
 
 typedef int (*uas_aar_t)(void *to, kaddr_t from, size_t n);
 
+/*
+ * v6.4 ~
+ * (1) kallsyms_num_syms
+ * (2) kallsyms_names
+ * (3) kallsyms_markers
+ * (4) kallsyms_token_table
+ * (5) kallsyms_token_index
+ * (6) kallsyms_addresses / kallsyms_offsets
+ * (7) kallsyms_relative_base
+ * (8) kallsyms_seq_of_names
+ * 
+ * ref: https://github.com/torvalds/linux/commit/404bad70fcf7cb1a36198581e6904637f3c36846
+ */
+struct kallsyms_cache {
+    bool initialized;
+    uint32_t kallsyms_num_syms;
+    kaddr_t kallsyms_names;
+    kaddr_t kallsyms_markers;
+    kaddr_t kallsyms_token_table;
+    kaddr_t kallsyms_token_index;
+    kaddr_t kallsyms_addresses;
+    kaddr_t kallsyms_offsets;
+    kaddr_t kallsyms_relative_base;
+    /* kaddr_t kallsyms_seq_of_names; useless member variable */
+};
+
 struct uas {
     kaddr_t kbase;
-    kaddr_t kallsyms_token_table;
     uas_aar_t aar_func;
     arch_t arch;
     kver_t kver;
+    struct kallsyms_cache kallsyms_cache;
 };
 
 typedef struct uas uas_t;

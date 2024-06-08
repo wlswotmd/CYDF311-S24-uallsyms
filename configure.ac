@@ -4,7 +4,7 @@
 AC_PREREQ([2.71])
 AC_INIT([libuallsyms], [1.0.0-beta0])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 AC_PROG_CC
 AC_TYPE_SIZE_T
