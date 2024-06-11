@@ -101,6 +101,12 @@ inline int kver_le(kver_t lhs, kver_t rhs)
 
 typedef int (*uas_aar_t)(void *to, kaddr_t from, size_t n);
 
+struct kallsyms_elem {
+    kaddr_t addr;
+    char type;
+    char *name;
+};
+
 /*
  * v6.4 ~
  * (1) kallsyms_num_syms
@@ -115,7 +121,6 @@ typedef int (*uas_aar_t)(void *to, kaddr_t from, size_t n);
  * ref: https://github.com/torvalds/linux/commit/404bad70fcf7cb1a36198581e6904637f3c36846
  */
 struct kallsyms_cache {
-    bool initialized;
     uint32_t kallsyms_num_syms;
     kaddr_t kallsyms_names;
     kaddr_t kallsyms_markers;
@@ -125,6 +130,13 @@ struct kallsyms_cache {
     kaddr_t kallsyms_offsets;
     kaddr_t kallsyms_relative_base;
     /* kaddr_t kallsyms_seq_of_names; useless member variable */
+
+    bool initialized;
+    bool may_use_big_symbol;
+    char *kallsyms_tokens[256];
+    u8 *kallsyms_names_content;
+    kaddr_t *kallsyms_address_list;
+    struct kallsyms_elem **kallsyms_elems;
 };
 
 struct uas {

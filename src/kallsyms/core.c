@@ -5,12 +5,30 @@
 #define _GNU_SOURCE
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <uallsyms/types.h>
 
 #include "core.h"
 #include "utils/log.h"
 #include "arch/x86_64/kbase.h"
+
+static struct kallsyms_elem *alloc_kallsyms_elem(void)
+{
+    struct kallsyms_elem *elem;
+
+    elem = malloc(sizeof(*elem));
+    if (!elem) {
+        pr_err("[alloc_kallsyms_elem] elem == NULL\n");
+        return NULL;
+    }
+
+    elem->addr = UNKNOWN_KADDR;
+    elem->type = 0;
+    elem->name = NULL;
+
+    return elem;
+}
 
 static kaddr_t resolve_kallsyms_token_table(uas_t *uas)
 {
@@ -21,6 +39,7 @@ static kaddr_t resolve_kallsyms_token_table(uas_t *uas)
     u8 *candidate;
     u8 tmp[PAGE_SIZE];
     u8 *tmp_kallsyms_token_table;
+    u8 *cur_token;
     int ret;
 
     if (uas->kallsyms_cache.initialized && uas->kallsyms_cache.kallsyms_token_table != UNKNOWN_KADDR)
@@ -54,7 +73,7 @@ static kaddr_t resolve_kallsyms_token_table(uas_t *uas)
     for (cur_page = entry_text_base; 
         cur_page <= entry_text_base + 0x2000000; 
         cur_page += PAGE_SIZE) {
-        ret = uas->aar_func(tmp, cur_page, PAGE_SIZE);
+        ret = uas_aar(uas, tmp, cur_page, PAGE_SIZE);
         if (ret < 0)
             return UNKNOWN_KADDR;
         
@@ -81,6 +100,17 @@ static kaddr_t resolve_kallsyms_token_table(uas_t *uas)
 
     kallsyms_token_table = cur_page + (tmp_kallsyms_token_table - tmp + 2);
 
+    ret = uas_aar(uas, tmp, kallsyms_token_table, PAGE_SIZE);
+    if (ret < 0)
+        return UNKNOWN_KADDR;
+    
+    cur_token = tmp;
+    for (int i = 0; i < 0x100; i++) {
+        uas->kallsyms_cache.kallsyms_tokens[i] = strdup(cur_token);
+
+        cur_token += strlen(cur_token) + 1;
+    }
+    
     pr_debug("[resolve_kallsyms_token_table] kallsyms_token_table: %#lx\n", kallsyms_token_table);
 
     return kallsyms_token_table;
@@ -107,7 +137,7 @@ static kaddr_t resolve_kallsyms_token_index(uas_t *uas)
         return UNKNOWN_KADDR;
     }
 
-    ret = uas->aar_func(tmp, kallsyms_token_table, PAGE_SIZE);
+    ret = uas_aar(uas, tmp, kallsyms_token_table, PAGE_SIZE);
     if (ret < 0)
         return UNKNOWN_KADDR;
 
@@ -127,7 +157,7 @@ static kaddr_t resolve_kallsyms_token_index(uas_t *uas)
     for (cur_page = kallsyms_token_table_page; 
         cur_page <= kallsyms_token_table_page + 0x10000; 
         cur_page += PAGE_SIZE) {
-        ret = uas->aar_func(tmp, cur_page, PAGE_SIZE);
+        ret = uas_aar(uas, tmp, cur_page, PAGE_SIZE);
         if (ret < 0)
             return UNKNOWN_KADDR;
         
@@ -160,7 +190,7 @@ static kaddr_t resolve_kallsyms_markers(uas_t *uas)
         return UNKNOWN_KADDR;
     }
 
-    ret = uas->aar_func(tmp, kallsyms_token_table - PAGE_SIZE, PAGE_SIZE);
+    ret = uas_aar(uas, tmp, kallsyms_token_table - PAGE_SIZE, PAGE_SIZE);
     if (ret < 0)
         return UNKNOWN_KADDR;
 
@@ -182,8 +212,10 @@ static kaddr_t resolve_kallsyms_names(uas_t *uas)
     kaddr_t kallsyms_markers_end;
     kaddr_t kallsyms_names;
     u32 kallsyms_markers_last_entry;
+    u32 kallsyms_names_len; 
     u8 tmp[PAGE_SIZE * 4];
     u8 *cur;
+    u8 *kallsyms_names_content;
     int ret;
 
     if (uas->kallsyms_cache.initialized && uas->kallsyms_cache.kallsyms_names != UNKNOWN_KADDR)
@@ -198,7 +230,7 @@ static kaddr_t resolve_kallsyms_names(uas_t *uas)
     kallsyms_markers_end = kallsyms_token_table - sizeof(int);
 
     while (1) {
-        ret = uas->aar_func(&kallsyms_markers_last_entry, kallsyms_markers_end, sizeof(kallsyms_markers_last_entry));
+        ret = uas_aar(uas, &kallsyms_markers_last_entry, kallsyms_markers_end, sizeof(kallsyms_markers_last_entry));
         if (ret < 0)
             return UNKNOWN_KADDR;
 
@@ -220,7 +252,7 @@ static kaddr_t resolve_kallsyms_names(uas_t *uas)
     kallsyms_names = kallsyms_markers - kallsyms_markers_last_entry;
     pr_debug("[resolve_kallsyms_names] kallsyms_names ≈ %#lx\n", kallsyms_names);
 
-    ret = uas->aar_func(tmp, kallsyms_names - sizeof(tmp), sizeof(tmp));
+    ret = uas_aar(uas, tmp, kallsyms_names - sizeof(tmp), sizeof(tmp));
     if (ret < 0)
         return UNKNOWN_KADDR;
     
@@ -230,6 +262,20 @@ static kaddr_t resolve_kallsyms_names(uas_t *uas)
     }
 
     kallsyms_names = kallsyms_names - (sizeof(tmp) - (cur - tmp)) + 4;
+
+    kallsyms_names_len = kallsyms_markers - kallsyms_names;
+    kallsyms_names_content = malloc(kallsyms_names_len);
+    if (!kallsyms_names_content) {
+        pr_err("[resolve_kallsyms_names] kallsyms_names_content == NULL\n");
+        return UNKNOWN_KADDR;
+    }
+
+    ret = uas_aar(uas, kallsyms_names_content, kallsyms_names, kallsyms_names_len);
+    if (ret < 0)
+        return UNKNOWN_KADDR;
+
+    uas->kallsyms_cache.kallsyms_names_content = kallsyms_names_content;
+
     pr_debug("[resolve_kallsyms_names] kallsyms_names: %#lx\n", kallsyms_names);
 
     return kallsyms_names;
@@ -250,7 +296,7 @@ static u32 resolve_kallsyms_num_syms(uas_t *uas)
         return 0;
     }
 
-    ret = uas->aar_func(&kallsyms_num_syms, kallsyms_names - sizeof(int) * 2, sizeof(kallsyms_num_syms));
+    ret = uas_aar(uas, &kallsyms_num_syms, kallsyms_names - sizeof(int) * 2, sizeof(kallsyms_num_syms));
     if (ret < 0)
         return 0;
 
@@ -305,13 +351,112 @@ static kaddr_t resolve_kallsyms_relative_base(uas_t *uas)
     kallsyms_relative_base_ptr = kallsyms_offsets + ALIGN(kallsyms_num_syms * sizeof(int), 8);
     pr_debug("[resolve_kallsyms_relative_base] kallsyms_relative_base_ptr: %#lx\n", kallsyms_relative_base_ptr);
 
-    ret = uas->aar_func(&kallsyms_relative_base, kallsyms_relative_base_ptr, sizeof(kallsyms_relative_base));
+    ret = uas_aar(uas, &kallsyms_relative_base, kallsyms_relative_base_ptr, sizeof(kallsyms_relative_base));
     if (ret < 0)
         return UNKNOWN_KADDR;
 
     pr_debug("[resolve_kallsyms_relative_base] kallsyms_relative_base: %#lx\n", kallsyms_relative_base);
 
     return kallsyms_relative_base;
+}
+
+static int resolve_kallsyms_address_list(uas_t *uas)
+{
+    int *offsets;
+    u32 kallsyms_offsets_len;
+    kaddr_t *kallsyms_address_list;
+    int ret;
+
+    if (uas->kallsyms_cache.kallsyms_address_list)
+        return 0;
+    
+    kallsyms_address_list = malloc(uas->kallsyms_cache.kallsyms_num_syms * sizeof(*kallsyms_address_list));
+    if (!kallsyms_address_list) {
+        pr_err("[resolve_kallsyms_address_list] kallsyms_address_list == NULL\n");
+        return -1;
+    }
+
+    kallsyms_offsets_len = uas->kallsyms_cache.kallsyms_num_syms * sizeof(*offsets);
+    offsets = malloc(kallsyms_offsets_len);
+    if (!offsets) {
+        pr_err("[resolve_kallsyms_address_list] offsets == NULL\n");
+        return -1;
+    }
+
+    ret = uas_aar(uas, offsets, uas->kallsyms_cache.kallsyms_offsets, kallsyms_offsets_len);
+    if (ret < 0)
+        return -1;
+
+    for (int i = 0; i < uas->kallsyms_cache.kallsyms_num_syms; i++) {
+        if (offsets[i] < 0)
+            kallsyms_address_list[i] = uas->kallsyms_cache.kallsyms_relative_base - offsets[i] - 1;
+        else
+            kallsyms_address_list[i] = uas->kallsyms_cache.kallsyms_relative_base + offsets[i];
+    }
+    
+    uas->kallsyms_cache.kallsyms_address_list = kallsyms_address_list;
+
+    free(offsets);
+
+    return 0;
+}
+
+static int resolve_kallsyms_elems(uas_t *uas)
+{
+    u32 name_len;
+    u32 pos;
+    u32 token_index;
+    u8 *kallsyms_names_content;
+    struct kallsyms_elem *elem;
+    struct kallsyms_elem **kallsyms_elems;
+    char type;
+    char *token;
+    char name[UINT16_MAX];
+
+    if (uas->kallsyms_cache.kallsyms_elems)
+        return 0;
+
+    kallsyms_elems = malloc(sizeof(*uas->kallsyms_cache.kallsyms_elems) * uas->kallsyms_cache.kallsyms_num_syms);
+    if (!kallsyms_elems) {
+        pr_err("[resolve_kallsyms_elems] kallsyms_elems == NULL\n");
+        return -1;
+    }
+
+    kallsyms_names_content = uas->kallsyms_cache.kallsyms_names_content;
+
+    pos = 0;
+    for (int i = 0; i < uas->kallsyms_cache.kallsyms_num_syms; i++) {
+        memset(name, 0, sizeof(name));
+        name_len = kallsyms_names_content[pos++];
+
+        if (uas->kallsyms_cache.may_use_big_symbol && name_len & 0x80)
+            name_len = (kallsyms_names_content[pos++] << 7) | (name_len & 0x7f);
+        
+        token_index = kallsyms_names_content[pos++];
+        token = uas->kallsyms_cache.kallsyms_tokens[token_index];
+        type = *token;
+
+        for (int j = 1; j < name_len; j++) {
+            token_index = kallsyms_names_content[pos++];
+
+            token = uas->kallsyms_cache.kallsyms_tokens[token_index];
+            strcat(name, token);
+        }
+
+        elem = alloc_kallsyms_elem();
+        if (!elem)
+            return -1;
+
+        elem->addr = uas->kallsyms_cache.kallsyms_address_list[i];
+        elem->type = type;
+        elem->name = strdup(name);
+
+        kallsyms_elems[i] = elem;
+    }
+
+    uas->kallsyms_cache.kallsyms_elems = kallsyms_elems;
+
+    return 0;
 }
 
 static int init_kallsyms_cache(uas_t *uas)
@@ -372,6 +517,12 @@ static int init_kallsyms_cache(uas_t *uas)
 
     uas->kallsyms_cache.kallsyms_relative_base = kaddr;
 
+    if (resolve_kallsyms_address_list(uas) < 0)
+        return -1;
+    
+    if (resolve_kallsyms_elems(uas) < 0)
+        return -1;
+
     uas->kallsyms_cache.initialized = true;
     
     return 0;
@@ -380,6 +531,7 @@ static int init_kallsyms_cache(uas_t *uas)
 kaddr_t kallsyms_lookup_name(uas_t *uas, const char *name)
 {
     int ret;
+    struct kallsyms_elem *cur_elem;
 
     if (!uas->kallsyms_cache.initialized) 
         ret = init_kallsyms_cache(uas);
@@ -387,6 +539,13 @@ kaddr_t kallsyms_lookup_name(uas_t *uas, const char *name)
     if (!uas->kallsyms_cache.initialized) {
         pr_err("[kallsyms_lookup_name] failed to initialze kallsyms_cache: %d\n", ret);
         return UNKNOWN_KADDR;
+    }
+
+    for (u32 i = 0; i < uas->kallsyms_cache.kallsyms_num_syms; i++) {
+        cur_elem = uas->kallsyms_cache.kallsyms_elems[i];
+
+        if (!strcmp(cur_elem->name, name))
+            return cur_elem->addr;
     }
 
     return UNKNOWN_KADDR;

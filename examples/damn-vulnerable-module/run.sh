@@ -37,7 +37,7 @@ run_vm()
         -cpu qemu64,+smep,+smap,+rdrand
         -kernel $kernel
         -initrd $initramfs
-        -append "root=/dev/vda1 console=tty1 console=ttyS0 quiet loglevel=3 nokaslr"
+        -append "root=/dev/vda1 console=tty1 console=ttyS0 quiet loglevel=3"
         -monitor /dev/null
         -nographic
         -hda $exploit # host: /path/to/exploit/file, guest: /dev/sda

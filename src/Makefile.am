@@ -9,9 +9,11 @@ libuallsyms_la_SOURCES =    uallsyms.c          \
                             arch/x86_64/kbase.h \
                             kallsyms/core.c     \
                             kallsyms/core.h     \
-                            kinfo/kconfig.c     \
-                            kinfo/kconfig.h     \
                             kinfo/uname.c       \
                             kinfo/uname.h       \
+                            resolver/canary.c   \
+                            resolver/canary.h   \
+                            resolver/gadget.c   \
+                            resolver/gadget.h   \
                             utils/log.c         \
                             utils/log.h         

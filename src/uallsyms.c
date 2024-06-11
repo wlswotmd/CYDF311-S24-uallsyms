@@ -12,20 +12,35 @@
 #include "kinfo/uname.h"
 #include "arch/x86_64/kbase.h"
 #include "kallsyms/core.h"
+#include "utils/log.h"
+#include "resolver/canary.h"
+#include "resolver/gadget.h"
 
-// kaddr_t uas_resolve_kernel_base(uas_t *uas)
-// {
-//     if (uas->kbase != UNKNOWN_KADDR)
-//         return uas->kbase;
+kaddr_t uas_resolve_pop_rdi(uas_t *uas)
+{
+    return resolve_pop_rdi(uas);
+}
 
-//     switch (uas->arch) {
-//     case X86_64:
-//         uas->kbase = x86_64_resolve_kernel_base(uas);
-//         return uas->kbase;
-//     default: /* Not implemented */
-//         return UNKNOWN_KADDR;
-//     }
-// }
+kaddr_t uas_resolve_kpti_trampoline(uas_t *uas)
+{
+    return resolve_kpti_trampoline(uas);
+}
+
+u64 uas_resolve_canary(uas_t *uas)
+{
+    return resolve_canary(uas);
+}
+
+int uas_aar(uas_t *uas, void *to, kaddr_t from, size_t n) 
+{
+    int ret;
+
+    ret = uas->aar_func(to, from, n);
+    if (ret < 0)
+        pr_err("[uas_aar] ret < 0\n");
+
+    return ret;
+}
 
 kaddr_t uas_lookup_name(uas_t *uas, const char *name)
 {
@@ -35,6 +50,8 @@ kaddr_t uas_lookup_name(uas_t *uas, const char *name)
 uas_t *uas_init2(uas_aar_t aar_func, arch_t arch)
 {
     uas_t *uas;
+    /* ref: https://github.com/torvalds/linux/commit/73bbb94466fd3f8b313eeb0b0467314a262dddb3 */
+    DEFINE_KVER(may_use_big_symbol_kver, 6, 1, 0);
 
     uas = calloc(1, sizeof(*uas));
     if (!uas)
@@ -47,6 +64,11 @@ uas_t *uas_init2(uas_aar_t aar_func, arch_t arch)
     uas->kver = current_kver(); 
 
     uas->kallsyms_cache.initialized = false;
+    if (kver_ge(uas->kver, may_use_big_symbol_kver))
+        uas->kallsyms_cache.may_use_big_symbol = true;
+    else
+        uas->kallsyms_cache.may_use_big_symbol = false;
+
     uas->kallsyms_cache.kallsyms_num_syms = 0;
     uas->kallsyms_cache.kallsyms_names = UNKNOWN_KADDR;
     uas->kallsyms_cache.kallsyms_markers = UNKNOWN_KADDR;
