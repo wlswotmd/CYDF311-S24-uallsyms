@@ -195,6 +195,8 @@ static kaddr_t resolve_kallsyms_markers(uas_t *uas)
         return UNKNOWN_KADDR;
 
     tmp_kallsyms_markers = memmem(tmp, PAGE_SIZE, "\0\0\0\0", 4);
+    if (!tmp_kallsyms_markers)
+        return UNKNOWN_KADDR;
 
     if (tmp_kallsyms_markers[1] == 0)
         tmp_kallsyms_markers = tmp_kallsyms_markers + 1;
